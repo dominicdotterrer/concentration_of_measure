@@ -117,6 +117,28 @@ before the roundness becomes visually striking.  But the direction of travel is
 unmistakable: keep pressing the button at $N = 200$ and you will rarely see anything
 very far from round.
 
+**Why only $O(\log N)$ polygon edges?**
+Each edge of the cross-section corresponds to one hypercube facet $x_k = \pm 1$ whose
+perpendicular foot from the origin actually lands inside the polygon.  Whether foot $k$
+is inside depends on how much each *other* column $j$ "sees" of column $k$.  A
+Parseval-type identity pins this down exactly: if $\mathbf{c}_k$ denotes the $k$-th
+column of the orthonormal basis, then
+
+$$\sum_{j=1}^{N} \left(\frac{\mathbf{c}_j \cdot \mathbf{c}_k}{\|\mathbf{c}_k\|^2}\right)^{\!2} = \frac{1}{\|\mathbf{c}_k\|^2}.$$
+
+For a *typical* column with $\|\mathbf{c}_k\|^2 \approx 2/N$, the right-hand side is
+$N/2$, spread over $N$ terms — so most ratios have magnitude $\sim 1/\sqrt{2}$ and
+many exceed 1, meaning foot $k$ is *outside* the polygon.  Only the $O(\log N)$
+*extremal* columns — those whose norm is $\Theta(\sqrt{\log N / N})$ by extreme-value
+theory — have a small enough right-hand side ($\approx N/(2\log N)$ spread over $N$
+terms) that all ratios are safely below 1.
+
+The upshot is a beautiful coincidence: Dvoretzky's theorem does **not** require many
+polygon sides.  It requires that the few sides present are *well-placed*.  Because all
+extremal column norms concentrate near the same value $\sqrt{2\log N / N}$, their feet
+all land at radius $\approx\sqrt{N/(2\log N)}$ and spread nearly uniformly in angle —
+making the $O(\log N)$-gon almost perfectly round.
+
 Two celebrated consequences of the same underlying geometry:
 
 **Johnson–Lindenstrauss lemma (1984).**  Any $n$ points in $\ell^2$ can be projected

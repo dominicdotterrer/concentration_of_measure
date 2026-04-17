@@ -133,8 +133,13 @@ def inradius(basis: np.ndarray, tol: float = 1e-9) -> float:
     r : float
     """
     col_norms_sq = np.sum(basis ** 2, axis=0)         # (N,)
-    feet = basis.T / col_norms_sq[:, None]             # (N, 2): foot_k = col_k / ||col_k||^2
-    lifts = feet @ basis                               # (N, N): row k is the N-dim lift of foot_k
+    active = col_norms_sq > tol                        # skip zero-norm columns (0*x+0*y=±1 is never tight)
+    if not np.any(active):
+        return np.inf
+
+    active_norms_sq = col_norms_sq[active]
+    feet = basis[:, active].T / active_norms_sq[:, None]  # (K, 2): foot_k = col_k / ||col_k||^2
+    lifts = feet @ basis                                   # (K, N): full lift; zero-norm coords are 0
     inside = np.all(np.abs(lifts) <= 1.0 + tol, axis=1)
 
     if not np.any(inside):
@@ -142,4 +147,4 @@ def inradius(basis: np.ndarray, tol: float = 1e-9) -> float:
 
     # distance_k = 1 / sqrt(col_norms_sq[k])
     # min distance corresponds to max col_norms_sq among valid constraints
-    return float(1.0 / np.sqrt(np.max(col_norms_sq[inside])))
+    return float(1.0 / np.sqrt(np.max(active_norms_sq[inside])))

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python -m pytest tests/test_cross_section.py::test_vertex_count_grows_with_dimension -v)"
+    ]
+  }
+}
