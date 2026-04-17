@@ -44,6 +44,7 @@ concentration_of_measure/
 ├── CLAUDE.md
 ├── README.md
 ├── .gitignore
+├── app.py                # Streamlit UI  (streamlit run app.py)
 ├── src/
 │   ├── __init__.py
 │   ├── api.py            # cross_section() — top-level entry point
@@ -51,10 +52,26 @@ concentration_of_measure/
 │   └── cross_section.py  # candidate_vertices(), polygon_vertices(),
 │                         # circumradius(), inradius()
 └── tests/
-    ├── test_api.py
+    ├── test_api.py       # includes cyclic-curve parametric tests
     ├── test_plane.py
     └── test_cross_section.py
 ```
+
+## Running the app
+
+```bash
+streamlit run app.py
+```
+
+The app lets the user choose a dimension N (default 42) and press a button to
+draw a new random cross-section.  The display shows:
+- **Light-blue circle** — circumscribed circle (always normalised to radius 1)
+- **Dark-purple polygon** — the cross-section
+- **Translucent dark-blue circle** — inscribed circle (radius = payout)
+- Label: `inradius / circumradius = X`
+
+Below the plot a mathematical explanation covers Dvoretzky's theorem,
+the Johnson–Lindenstrauss lemma, and the Lindenstrauss ℓ²→ℓ¹ embedding result.
 
 ## Modules
 

@@ -112,3 +112,72 @@ def test_hexagon_via_matrix():
     v2 = np.array([1.0,  1.0, -2.0]) / np.sqrt(6)
     result = cross_section(matrix=np.stack([v1, v2]))
     np.testing.assert_allclose(result.payout, np.sqrt(3) / 2, atol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# cyclic-curve family
+# ---------------------------------------------------------------------------
+# The cyclic-curve matrix is defined by two geometric progressions:
+#   row 0: [a,  a^2,  ..., a^n]
+#   row 1: [b,  b^2,  ..., b^n]   with 0 < a < b < 1
+#
+# After Gram-Schmidt this defines a specific 2D plane.  It is a useful
+# parametric family for testing because the entries decay at controlled rates
+# and the resulting cross-sections span a range of shapes.
+
+@pytest.mark.parametrize("a,b,n", [
+    (1/3, 2/3, 10),
+    (1/3, 2/3, 30),
+    (0.1, 0.9, 15),
+    (0.4, 0.6, 20),
+])
+def test_cyclic_curve_payout_valid(a, b, n):
+    idx = np.arange(1, n + 1)
+    matrix = np.stack([a ** idx, b ** idx])
+    result = cross_section(matrix=matrix)
+    assert 0 < result.payout <= 1.0 + 1e-9
+
+
+@pytest.mark.parametrize("a,b,n", [
+    (1/3, 2/3, 10),
+    (0.2, 0.8, 20),
+])
+def test_cyclic_curve_vertices_in_cube(a, b, n):
+    idx = np.arange(1, n + 1)
+    result = cross_section(matrix=np.stack([a ** idx, b ** idx]))
+    lifts = result.vertices @ result.basis
+    np.testing.assert_array_less(np.abs(lifts), 1.0 + 1e-9)
+
+
+def test_cyclic_curve_antipodal():
+    a, b, n = 1/3, 2/3, 10
+    idx = np.arange(1, n + 1)
+    result = cross_section(matrix=np.stack([a ** idx, b ** idx]))
+    np.testing.assert_array_equal(result.antipodal_vertices, -result.vertices)
+
+
+def test_cyclic_curve_payout_converges():
+    # Geometric entries decay exponentially, so the polygon shape is essentially
+    # fixed once n is large enough to capture the non-negligible terms.
+    # Payout for n=30 and n=50 should be indistinguishable.
+    a, b = 1/3, 2/3
+    payouts = []
+    for n in [20, 30, 50]:
+        idx = np.arange(1, n + 1)
+        payouts.append(cross_section(matrix=np.stack([a ** idx, b ** idx])).payout)
+    assert abs(payouts[-1] - payouts[-2]) < 0.01, \
+        f"payout did not converge: {payouts}"
+
+
+def test_cyclic_curve_no_convergence_for_a_b_gt_1():
+    # For a, b > 1 entries grow with index, so later dimensions keep shifting the
+    # effective 2D plane — the polygon does NOT stabilize the way it does for a, b < 1.
+    # Contrast: the a,b < 1 convergence test asserts |payout(30) - payout(50)| < 0.01;
+    # here we assert the analogous gap is still > 0.01 (not yet converged).
+    a, b = 1.1, 1.3
+    payouts = []
+    for n in [10, 20, 50]:
+        idx = np.arange(1, n + 1)
+        payouts.append(cross_section(matrix=np.stack([a ** idx, b ** idx])).payout)
+    assert abs(payouts[-1] - payouts[-2]) > 0.01, \
+        f"expected non-convergence for a={a}, b={b}; got payouts={payouts}"

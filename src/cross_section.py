@@ -1,5 +1,6 @@
 import numpy as np
-from itertools import combinations  # used by candidate_vertices
+
+_BATCH = 8192   # rows processed at a time in polygon_vertices
 
 
 def candidate_vertices(basis: np.ndarray) -> np.ndarray:
@@ -25,23 +26,31 @@ def candidate_vertices(basis: np.ndarray) -> np.ndarray:
     pts : (K, 2) array, K <= N*(N-1)
     """
     n = basis.shape[1]
-    candidates = []
+    i_idx, j_idx = np.triu_indices(n, k=1)   # all (i,j) pairs with i < j
 
-    for i, j in combinations(range(n), 2):
-        a_i, b_i = basis[0, i], basis[1, i]
-        a_j, b_j = basis[0, j], basis[1, j]
+    a_i, b_i = basis[0, i_idx], basis[1, i_idx]
+    a_j, b_j = basis[0, j_idx], basis[1, j_idx]
 
-        det = a_i * b_j - a_j * b_i
-        if abs(det) < 1e-12:   # parallel lines — no finite intersection
-            continue
+    det = a_i * b_j - a_j * b_i
+    valid = np.abs(det) > 1e-12
+    if not np.any(valid):
+        return np.empty((0, 2))
 
-        # (+1, +1): rhs = [1, 1]
-        candidates.append([(b_j - b_i) / det, (a_i - a_j) / det])
+    a_i, b_i = a_i[valid], b_i[valid]
+    a_j, b_j = a_j[valid], b_j[valid]
+    det = det[valid]
 
-        # (+1, -1): rhs = [1, -1]
-        candidates.append([(b_j + b_i) / det, -(a_i + a_j) / det])
+    # (+1, +1): x = (b_j - b_i)/det,  y = (a_i - a_j)/det
+    x_pp = (b_j - b_i) / det
+    y_pp = (a_i - a_j) / det
 
-    return np.array(candidates) if candidates else np.empty((0, 2))
+    # (+1, -1): x = (b_j + b_i)/det,  y = -(a_i + a_j)/det
+    x_pm = (b_j + b_i) / det
+    y_pm = -(a_i + a_j) / det
+
+    pp = np.stack([x_pp, y_pp], axis=1)
+    pm = np.stack([x_pm, y_pm], axis=1)
+    return np.concatenate([pp, pm], axis=0)
 
 
 def polygon_vertices(basis: np.ndarray, candidates: np.ndarray, tol: float = 1e-9) -> np.ndarray:
@@ -51,6 +60,8 @@ def polygon_vertices(basis: np.ndarray, candidates: np.ndarray, tol: float = 1e-
     Each candidate p is lifted to R^N via basis.T @ p = candidates @ basis (row-wise).
     A point is a true polygon vertex iff every coordinate of its lift is in [-1, 1];
     by construction at least two coordinates are exactly +-1.
+
+    Candidates are processed in batches of _BATCH rows to bound peak memory use.
 
     Parameters
     ----------
@@ -65,9 +76,14 @@ def polygon_vertices(basis: np.ndarray, candidates: np.ndarray, tol: float = 1e-
     if len(candidates) == 0:
         return candidates
 
-    lifts = candidates @ basis          # (K, N): row k is the N-dim lift of candidate k
-    mask = np.all(np.abs(lifts) <= 1.0 + tol, axis=1)
-    return candidates[mask]
+    keep = []
+    for start in range(0, len(candidates), _BATCH):
+        chunk = candidates[start : start + _BATCH]
+        lifts = chunk @ basis                            # (_BATCH, N)
+        mask = np.all(np.abs(lifts) <= 1.0 + tol, axis=1)
+        keep.append(chunk[mask])
+
+    return np.concatenate(keep, axis=0) if keep else np.empty((0, 2))
 
 
 def circumradius(vertices: np.ndarray) -> float:
